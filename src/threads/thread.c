@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -99,6 +98,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  thread_current()->islock=0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -204,6 +204,8 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+  t->islock=0;
+
 
   intr_set_level (old_level);
 
@@ -249,7 +251,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  
+  //list_push_back (struct list *, struct list_elem *);
+  //list_push_back (&ready_list, &t->elem);
   list_insert_ordered (&ready_list, &t->elem, Comparasion, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -352,12 +355,19 @@ thread_set_priority (int new_priority)
 {
 	struct thread *t;
 	t=thread_current();
-  if(t->priority > new_priority)
+
+  if(t->islock == 0)
   {
-    t->priority = new_priority;
-    thread_yield ();
+  	if(t->priority > new_priority)
+  	{
+   	 t->priority = new_priority;
+   	 thread_yield ();
+ 	  }
+
+  	t->priority = new_priority;
+  }else{
+    t->dump=new_priority;
   }
-  t->priority = new_priority;
 }
 
 /* Returns the current thread's priority. */
@@ -589,7 +599,9 @@ Comparasion (const struct list_elem *a,
 {
   struct thread *t = list_entry (a, struct thread, elem);
   struct thread *g = list_entry (b, struct thread, elem);
-  
+  //printf("a = %d = %d\tb = %d = %d\n",a->priority,t->priority,b->priority,g->priority);
+  //printf("My %lld: %d\tOther %lld: %d\n",a, a->priority, b, b->priority);
+  //printf("%d > %d\n",t->priority, g->priority);
   if(g->status == THREAD_BLOCKED)
   	return true;
   if(t->priority > g->priority)

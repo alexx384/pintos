@@ -61,13 +61,12 @@ test_priority_fifo (void)
       d->lock = &lock;
       d->op = &op;
       thread_create (name, PRI_DEFAULT + 1, simple_thread_func, d);
-      msg ("Thread: %s priority: %d",name,PRI_DEFAULT + 1);
     }
 
   thread_set_priority (PRI_DEFAULT);
   /* All the other threads now run to termination here. */
   ASSERT (lock.holder == NULL);
-  msg ("All done");
+
   cnt = 0;
   for (; output < op; output++) 
     {
@@ -95,7 +94,6 @@ simple_thread_func (void *data_)
       lock_acquire (data->lock);
       *(*data->op)++ = data->id;
       lock_release (data->lock);
-      msg ("Thread number: %s",thread_name());
       thread_yield ();
     }
 }
