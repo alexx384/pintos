@@ -356,7 +356,7 @@ thread_set_priority (int new_priority)
 	struct thread *t;
 	t=thread_current();
 
-  if(t->islock == 0)
+  if(t->lock == NULL)
   {
   	if(t->priority > new_priority)
   	{

@@ -25,6 +25,7 @@ test_priority_donate_lower (void)
 
   lock_init (&lock);
   lock_acquire (&lock);
+
   thread_create ("acquire", PRI_DEFAULT + 10, acquire_thread_func, &lock);
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 10, thread_get_priority ());
@@ -33,6 +34,7 @@ test_priority_donate_lower (void)
   thread_set_priority (PRI_DEFAULT - 10);
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 10, thread_get_priority ());
+  
   lock_release (&lock);
   msg ("acquire must already have finished.");
   msg ("Main thread should have priority %d.  Actual priority: %d.",
