@@ -1,0 +1,73 @@
+diff --git a/src/threads/synch.c b/src/threads/synch.c
+index 1673748..b235282 100755
+--- a/src/threads/synch.c
++++ b/src/threads/synch.c
+@@ -75,7 +75,6 @@ sema_down (struct semaphore *sema)
+       //list_push_back (&sema->waiters, &thread_current ()->elem);
+       thread_block ();
+     }
+-
+   sema->value--;
+   intr_set_level (old_level);
+ }
+@@ -208,14 +207,8 @@ lock_acquire (struct lock *lock)
+   ASSERT (!intr_context ());
+   ASSERT (!lock_held_by_current_thread (lock));
+ 
+-  if(lock->holder != NULL)
+-  {
+-    lock->holder->priority=thread_current ()->priority;
+-  }
+   sema_down (&lock->semaphore);
+-
+   lock->holder = thread_current ();
+-  lock->start_priority=thread_current()->priority;
+ }
+ 
+ /* Tries to acquires LOCK and returns true if successful or false
+@@ -249,7 +242,6 @@ lock_release (struct lock *lock)
+   ASSERT (lock != NULL);
+   ASSERT (lock_held_by_current_thread (lock));
+ 
+-  lock->holder->priority=lock->start_priority;
+   lock->holder = NULL;
+   sema_up (&lock->semaphore);
+ }
+@@ -384,10 +376,10 @@ Comparasion (const struct list_elem *a,
+       const struct list_elem *b,
+       void *aux)
+ {
+-  struct thread *t = list_entry (a, struct thread, elem);
++  struct thread *t = list_entry (b, struct thread, elem);
+   struct thread *g = list_entry (b, struct thread, elem);
+   
+-  //printf("%s %d > %s %d\n",t->name,t->priority, g->name,g->priority);
++  //printf("%d > %d\n",t->priority, g->priority);
+   //if(g->status == THREAD_BLOCKED)
+   //  return true;
+   if(t->priority > g->priority)
+diff --git a/src/threads/synch.h b/src/threads/synch.h
+index 10d2ffe..a19e88b 100755
+--- a/src/threads/synch.h
++++ b/src/threads/synch.h
+@@ -20,7 +20,6 @@ void sema_self_test (void);
+ /* Lock. */
+ struct lock 
+   {
+-    int start_priority;
+     struct thread *holder;      /* Thread holding lock (for debugging). */
+     struct semaphore semaphore; /* Binary semaphore controlling access. */
+   };
+diff --git a/src/threads/thread.c b/src/threads/thread.c
+index c68217c..be8525c 100755
+--- a/src/threads/thread.c
++++ b/src/threads/thread.c
+@@ -609,7 +609,7 @@ allocate_tid (void)
+ {
+   static tid_t next_tid = 1;
+   tid_t tid;
+-  tid_lock.holder=NULL;
++
+   lock_acquire (&tid_lock);
+   tid = next_tid++;
+   lock_release (&tid_lock);
