@@ -3,6 +3,7 @@
 
 #include <list.h>
 #include <stdbool.h>
+//#include "threads/malloc.h"
 
 /* A counting semaphore. */
 struct semaphore 
@@ -17,13 +18,26 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
+struct Tpriority
+  {
+    int pri;
+    struct thread *holder;
+    struct Tpriority *next;
+  };
+
+
 /* Lock. */
 struct lock 
   {
+    struct Tpriority *thr_priority;
+    struct lock *next;
     int start_priority;
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
   };
+
+void Lock_Add (struct lock *lock);
+void Lock_Freedom (struct lock *lock);
 
 void lock_init (struct lock *);
 void lock_acquire (struct lock *);

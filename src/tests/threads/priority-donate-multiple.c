@@ -43,6 +43,8 @@ test_priority_donate_multiple (void)
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 2, thread_get_priority ());
 
+ // msg("start %d\tstart %d",thread_current()->lock->start_priority, b.start_priority);
+
   lock_release (&b);
   msg ("Thread b should have just finished.");
   msg ("Main thread should have priority %d.  Actual priority: %d.",

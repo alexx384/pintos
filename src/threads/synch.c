@@ -190,6 +190,8 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
+  lock->thr_priority=NULL;
+  lock->next=NULL;
   sema_init (&lock->semaphore, 1);
 }
 
@@ -204,27 +206,34 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
+  struct thread *i;
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  
-  if(lock->holder != NULL)
-  {
-    lock->holder->priority=thread_current ()->priority;
-  }
+  i=thread_current();
 
   if(thread_current()->lock == NULL)
   {
     thread_current()->lock=lock;
-    thread_current()->dump=thread_current()->priority;
+  }else{
+    Lock_Add(lock);
   }
-  
+
+  if(i == thread_current())
+    printf("YES\n");
+  else
+    printf("No\n");
+ // if(thread_current()->lock != NULL)
+
+
+
+//===============================================  
   sema_down (&lock->semaphore);
+//===============================================  
 
   lock->holder = thread_current ();
-  lock->start_priority=thread_current()->priority;
-  thread_current()->islock=1;
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -255,21 +264,27 @@ lock_try_acquire (struct lock *lock)
 void
 lock_release (struct lock *lock) 
 {
+  //struct thread *i;
+
   ASSERT (lock != NULL);
-  ASSERT (lock_held_by_current_thread (lock));
-
-  thread_current()->priority=lock->start_priority;
-
-  if(thread_current()->lock == lock)
-  {
-    thread_current()->lock=NULL;
-    thread_current()->priority=thread_current()->dump;
-  }
-
-  thread_current()->islock=0;
+  ASSERT (lock_held_by_current_thread (lock)); 
 
   lock->holder = NULL;
+
+//===============================================  
   sema_up (&lock->semaphore);
+//===============================================
+
+ // i=thread_current();
+  if(thread_current()->lock == NULL)
+  {
+    thread_current()->lock=lock;
+  }else{
+    Lock_Freedom(lock);
+  }
+ // if(thread_current()->lock != NULL)
+
+  
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -408,4 +423,34 @@ Comparasion (const struct list_elem *a,
   }else{
     return false;
   }
+}
+
+void Lock_Freedom(struct lock *lock)
+{
+  struct Tpriority *i;
+
+  lock->start_priority=lock->thr_priority->pri;
+  thread_current()->priority=lock->start_priority;
+
+  i=lock->thr_priority;
+  lock->thr_priority=lock->thr_priority->next;
+  free(i);
+}
+
+void Lock_Add(struct lock *lock)
+{
+  struct Tpriority *data;
+  data=malloc(sizeof(data));
+
+  data->pri=thread_current()->priority;
+  data->holder=thread_current();
+
+  if(lock->thr_priority == NULL)
+  {
+    data->next=NULL;
+  }else{
+    data->next=lock->thr_priority;
+  }
+
+  lock->thr_priority=data;
 }

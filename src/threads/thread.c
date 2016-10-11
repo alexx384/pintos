@@ -98,7 +98,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  thread_current()->islock=0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -204,8 +203,10 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  t->islock=0;
 
+  t->lock=NULL;
+
+  thread_current()->lock->start_priority=thread_current()->priority;
 
   intr_set_level (old_level);
 
@@ -366,7 +367,9 @@ thread_set_priority (int new_priority)
 
   	t->priority = new_priority;
   }else{
-    t->dump=new_priority;
+    //t->lock->start_priority=new_priority;
+    t->lock->start_priority=new_priority;
+    //t->dump=new_priority;
   }
 }
 
