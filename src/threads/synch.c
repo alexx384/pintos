@@ -34,6 +34,7 @@
 
 static list_less_func Comparasion;
 static list_less_func Parasion;
+static list_less_func Quarasion; 
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -118,16 +119,18 @@ sema_up (struct semaphore *sema)
 
   ASSERT (sema != NULL);
 
-  old_level = intr_disable ();
+  //old_level = intr_disable ();
+  sema->value++;
   if (!list_empty (&sema->waiters))
   {
+    list_sort(&sema->waiters, Comparasion, NULL);
     t=list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem);
     thread_unblock (t);
   }
-  sema->value++;
-  thread_yield();
-  intr_set_level (old_level);
+
+  //thread_yield();
+  //intr_set_level (old_level);
  // if(thread_current()->priority < t->priority)
  //   thread_yield();
 }
@@ -204,27 +207,43 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
+  struct lock *copy = lock;
+  struct thread *first = thread_current();
+  struct thread *second = lock->holder;
+  int i=1;
+
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  
-  if(lock->holder != NULL)
+  if (thread_mlfqs == false)
   {
-    lock->holder->priority=thread_current ()->priority;
-  }
+    if(lock->holder != NULL)
+    {
+      list_push_back(&lock->holder->list_wait_thread , &thread_current()->pointer);
+      thread_current()->lock_to_enter=lock;
+      copy = lock;
+    //list_insert_ordered (&lock->holder->list_wait_thread, &thread_current()->pointer, Quarasion, NULL);
 
-  if(thread_current()->lock == NULL)
-  {
-    thread_current()->lock=lock;
-    thread_current()->dump=thread_current()->priority;
+    while(i==1)
+    {
+      second = lock->holder;
+      if (first->priority > second->priority)   
+        second->priority = first->priority;
+
+      first = second;
+
+      if (first->lock_to_enter == NULL)     break;
+      else     
+        lock = first->lock_to_enter;
+    }
+    lock = copy;
+  } 
   }
-  
   sema_down (&lock->semaphore);
 
   lock->holder = thread_current ();
-  lock->start_priority=thread_current()->priority;
-  thread_current()->islock=1;
+  thread_current()->lock_to_enter=NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -255,18 +274,39 @@ lock_try_acquire (struct lock *lock)
 void
 lock_release (struct lock *lock) 
 {
+  struct list_elem *e;
+  struct thread *cur;
+
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  thread_current()->priority=lock->start_priority;
-
-  if(thread_current()->lock == lock)
+  if (thread_mlfqs == false)
   {
-    thread_current()->lock=NULL;
-    thread_current()->priority=thread_current()->dump;
-  }
 
-  thread_current()->islock=0;
+    enum intr_level old_level = intr_disable();
+
+    if (! list_empty(&thread_current()->list_wait_thread))
+    {
+      thread_current()->priority = thread_current()->dump;
+    
+      for (e = list_begin(&thread_current()->list_wait_thread); e != list_end(&thread_current()->list_wait_thread);)
+      {
+        cur = list_entry(e, struct thread, pointer);
+        if (cur->lock_to_enter != lock)
+        {
+          if (cur->priority > thread_current()->priority)
+            thread_current()->priority = cur->priority;
+          e = list_next(e);
+        }
+        else if (cur->lock_to_enter == lock)
+          e = list_remove(e);
+      }
+    }else
+      thread_current()->priority = thread_current()->dump;
+  
+    intr_set_level(old_level);
+
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -379,6 +419,22 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 }
 
 static bool 
+Quarasion (const struct list_elem *a,
+      const struct list_elem *b,
+      void *aux)
+{
+  struct thread *t = list_entry (a, struct thread, pointer);
+  struct thread *g = list_entry (b, struct thread, pointer);
+
+  if(t->priority > g->priority)
+  {
+    return true;
+  }else{
+    return false;
+  }
+}
+
+static bool 
 Parasion (const struct list_elem *a,
       const struct list_elem *b,
       void *aux)
@@ -401,7 +457,7 @@ Comparasion (const struct list_elem *a,
 {
   struct thread *t = list_entry (a, struct thread, elem);
   struct thread *g = list_entry (b, struct thread, elem);
-  
+
   if(t->priority > g->priority)
   {
     return true;

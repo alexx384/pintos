@@ -10,6 +10,9 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
+#include "devices/timer.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -96,9 +99,10 @@ thread_init (void)
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
+  list_init(&initial_thread->list_wait_thread);
   initial_thread->status = THREAD_RUNNING;
+  initial_thread->dump=PRI_DEFAULT;
   initial_thread->tid = allocate_tid ();
-  thread_current()->islock=0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -204,16 +208,18 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  t->islock=0;
 
+  list_init(&t->list_wait_thread);
+  t->dump=priority;
+  t->lock_to_enter=NULL;
+
+  t->CPU_birst=TIME_SLICE;
 
   intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
 
-  if(thread_current()->priority < t->priority)
-  	thread_yield();
 
   return tid;
 }
@@ -255,6 +261,10 @@ thread_unblock (struct thread *t)
   //list_push_back (&ready_list, &t->elem);
   list_insert_ordered (&ready_list, &t->elem, Comparasion, NULL);
   t->status = THREAD_READY;
+
+  if((thread_current() != idle_thread) && (t->priority > thread_current()->priority))
+    thread_yield();
+  
   intr_set_level (old_level);
 }
 
@@ -356,18 +366,19 @@ thread_set_priority (int new_priority)
 	struct thread *t;
 	t=thread_current();
 
-  if(t->lock == NULL)
+  if (! list_empty(&ready_list))
   {
-  	if(t->priority > new_priority)
-  	{
-   	 t->priority = new_priority;
-   	 thread_yield ();
- 	  }
+    t->priority = new_priority;
+    list_sort(&ready_list, Comparasion, NULL);
 
-  	t->priority = new_priority;
-  }else{
-    t->dump=new_priority;
-  }
+    t = list_entry(list_front(&ready_list), struct thread, elem);
+
+  	if (thread_current()->priority < t->priority)
+      thread_yield();
+  }else if(list_empty(&thread_current()->list_wait_thread)) // THIS ENSURES NO THREAD WAITING ON CURRENT THREAD FOR A LOCK
+    thread_current ()->priority = new_priority;
+
+  thread_current ()->dump = new_priority;
 }
 
 /* Returns the current thread's priority. */
@@ -618,7 +629,7 @@ allocate_tid (void)
 {
   static tid_t next_tid = 1;
   tid_t tid;
-  tid_lock.holder=NULL;
+  //tid_lock.holder=NULL;
   lock_acquire (&tid_lock);
   tid = next_tid++;
   lock_release (&tid_lock);
