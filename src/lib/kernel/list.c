@@ -485,6 +485,20 @@ list_unique (struct list *list, struct list *duplicates,
       elem = next;
 }
 
+
+void list_traverse(struct list *list,
+                list_less_func *less, void *aux)
+{
+  struct list_elem *e,*dump;
+
+  for (e = list_begin (list); e != list_end (list); )
+  {
+    dump=e;
+    e = list_next (e);
+    less (dump, e, aux);
+  }
+}
+
 /* Returns the element in LIST with the largest value according
    to LESS given auxiliary data AUX.  If there is more than one
    maximum, returns the one that appears earlier in the list.  If

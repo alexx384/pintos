@@ -366,7 +366,7 @@ thread_set_priority (int new_priority)
 	struct thread *t;
 	t=thread_current();
 
-  if (! list_empty(&ready_list))
+  if (!list_empty(&ready_list))
   {
     t->priority = new_priority;
     list_sort(&ready_list, Comparasion, NULL);
@@ -375,8 +375,11 @@ thread_set_priority (int new_priority)
 
   	if (thread_current()->priority < t->priority)
       thread_yield();
-  }else if(list_empty(&thread_current()->list_wait_thread)) // THIS ENSURES NO THREAD WAITING ON CURRENT THREAD FOR A LOCK
-    thread_current ()->priority = new_priority;
+  }else{
+/* no thread waiting on current threads lock. */    
+    if(list_empty(&thread_current()->list_wait_thread)) 
+      thread_current ()->priority = new_priority;
+  }  
 
   thread_current ()->dump = new_priority;
 }

@@ -35,6 +35,9 @@
 static list_less_func Comparasion;
 static list_less_func Parasion;
 static list_less_func Quarasion; 
+static list_less_func Do_in_traverse;
+/* Technical functions */
+void Repair_holders_priority(struct lock lock_);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -73,7 +76,7 @@ sema_down (struct semaphore *sema)
   while (sema->value == 0) 
     {
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, Comparasion, NULL);
-      //list_push_back (&sema->waiters, &thread_current ()->elem);
+  
       thread_block ();
     }
 
@@ -207,43 +210,29 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
-  struct lock *copy = lock;
-  struct thread *first = thread_current();
-  struct thread *second = lock->holder;
-  int i=1;
-
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if (thread_mlfqs == false)
+  
+  if(lock->holder != NULL)
   {
-    if(lock->holder != NULL)
-    {
-      list_push_back(&lock->holder->list_wait_thread , &thread_current()->pointer);
-      thread_current()->lock_to_enter=lock;
-      copy = lock;
-    //list_insert_ordered (&lock->holder->list_wait_thread, &thread_current()->pointer, Quarasion, NULL);
+    list_insert_ordered (&lock->holder->list_wait_thread, &thread_current ()->pointer, Quarasion, NULL);
 
-    while(i==1)
-    {
-      second = lock->holder;
-      if (first->priority > second->priority)   
-        second->priority = first->priority;
+    thread_current()->lock_to_enter=lock;
 
-      first = second;
-
-      if (first->lock_to_enter == NULL)     break;
-      else     
-        lock = first->lock_to_enter;
-    }
-    lock = copy;
+/* Repair that if priority of locks holder is more
+   Repair so every next holder of lock*/
+    Repair_holders_priority(*lock);
   } 
-  }
+
+//==============================================  
   sema_down (&lock->semaphore);
+//==============================================  
+
+  thread_current()->lock_to_enter=NULL;
 
   lock->holder = thread_current ();
-  thread_current()->lock_to_enter=NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -280,36 +269,20 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (thread_mlfqs == false)
+
+  thread_current()->priority = thread_current()->dump;
+
+  if (!list_empty(&thread_current()->list_wait_thread))
   {
-
-    enum intr_level old_level = intr_disable();
-
-    if (! list_empty(&thread_current()->list_wait_thread))
-    {
-      thread_current()->priority = thread_current()->dump;
-    
-      for (e = list_begin(&thread_current()->list_wait_thread); e != list_end(&thread_current()->list_wait_thread);)
-      {
-        cur = list_entry(e, struct thread, pointer);
-        if (cur->lock_to_enter != lock)
-        {
-          if (cur->priority > thread_current()->priority)
-            thread_current()->priority = cur->priority;
-          e = list_next(e);
-        }
-        else if (cur->lock_to_enter == lock)
-          e = list_remove(e);
-      }
-    }else
-      thread_current()->priority = thread_current()->dump;
-  
-    intr_set_level(old_level);
-
+/*Traverse the list and search max priority of holder elem
+  Also if we are find list element with the same lock then we are delete that element*/
+    list_traverse(&thread_current()->list_wait_thread, Do_in_traverse, lock);
   }
 
+//======================================
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+//======================================  
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -464,4 +437,48 @@ Comparasion (const struct list_elem *a,
   }else{
     return false;
   }
+}
+
+static bool 
+Do_in_traverse (const struct list_elem *a,
+      const struct list_elem *b,
+      void *aux)
+{
+  struct lock *lock=aux;
+  struct thread *cur=list_entry(a, struct thread, pointer);;
+  
+  if (cur->lock_to_enter != lock)
+  {
+    if (cur->priority > thread_current()->priority)
+      thread_current()->priority = cur->priority;
+  }
+
+  if (cur->lock_to_enter == lock)
+      a = list_remove(a);
+
+  return true;   
+}
+/* Repair that if priority of locks holder is more
+   Repair so every next holder of lock*/    
+void Repair_holders_priority(struct lock lock_)
+{
+  struct lock *lock=&lock_;
+  struct thread *first = thread_current();
+  struct thread *second = lock->holder;
+  int i=1;
+
+  while(i==1)
+  {
+    second = lock->holder;
+    if (first->priority > second->priority)   
+      second->priority = first->priority;
+
+    if (second->lock_to_enter == NULL)     i=0;
+    else     
+      lock = second->lock_to_enter;
+
+    first = second;
+  }
+
+  /* Every holder of lock must have more priority, then threads how wait him */  
 }
