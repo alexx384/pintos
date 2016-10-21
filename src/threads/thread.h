@@ -81,6 +81,18 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+
+struct DataElement
+{
+  struct DataElement *next;
+  int start_time;
+  char *name;
+  int work_time;
+  int end_time;
+  struct semaphore *sema;
+  int need_to_work;
+};
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -96,6 +108,10 @@ struct thread
     struct list list_wait_thread;       /* List of threads, how waiting current thread after
                                            he ended his work in lock*/
 
+    /* Temporary */
+    int work_time;
+    struct DataElement *data_list;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     struct list_elem pointer;           /* List element of list_wait_thread. */
@@ -107,7 +123,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-  };
+  };  
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
