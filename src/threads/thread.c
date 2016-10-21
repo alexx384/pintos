@@ -177,7 +177,6 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
   enum intr_level old_level;
-  struct DataElement *data_list=aux;
   
 
   ASSERT (function != NULL);
@@ -217,10 +216,7 @@ thread_create (const char *name, int priority,
   t->lock_to_enter=NULL;
 
   t->CPU_birst=TIME_SLICE;
-
-  /* Temporary */
-  t->data_list=aux;
-  t->data_list->start_time=timer_ticks();  
+  
   intr_set_level (old_level);
 
   /* Add to run queue. */

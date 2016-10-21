@@ -28,6 +28,7 @@ threads_audit(void)
       	elem->name=name;
       	elem->sema=&wait_sema;
       	elem->need_to_work=50*(i % 5);
+        elem->start_time=timer_ticks();
 
     	thread_create (name, PRI_DEFAULT+10-i, do_func, elem);
     	DataStart=elem;
@@ -54,6 +55,9 @@ static void
 do_func (void *aux) 
 {
 	struct thread *cur=thread_current();
+//    struct DataElement *data=aux;
+    cur->data_list=aux;
+
 
 	cur->work_time=timer_ticks();
 //	msg("%s is start work",cur->name);
