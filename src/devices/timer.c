@@ -201,19 +201,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   int64_t i;
   ticks++;
-  thread_tick ();
   if(mas != NULL)
   {
-    if((ticks >= mas[1]) && (mas[0]!=0))
+    while((ticks >= mas[1]) && (mas[0]!=0))
     {
-      
+      if(mas[1]==0) break;
       i=mas[2];
       mas[2]=mas[1]=0;
       Mshift();
       thread_unblock(i);
-
     }
   }  
+  thread_tick ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
